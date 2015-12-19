@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>photomosaic.js</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<script src='../src/after.js'></script>
+<body>
+    <h3>Image Drum(TR-808) </h3>
+
+
+    <div class="block">
+        <img src="image.jpg" id='before'>
+    </div>
+    <div class="block">
+        <div id='after'></div>
+    </div>
+
+
+
+
+    <div style="position:absolute ; top:400px ; right:300px ">
+        <img src="image.jpg"  usemap="map">
+        <map name="map">
+            <area shape="circle" coords="50,50,50" onclick="play1()">
+            <area shape="circle" coords="150,50,50" onclick="play2()">
+            <area shape="circle" coords="250,50,50" onclick="play3()">
+            <area shape="circle" coords="350,50,50" onclick="play4()">
+            <area shape="circle" coords="50,150,50" onclick="play5()">
+            <area shape="circle" coords="150,150,50" onclick="play6()">
+            <area shape="circle" coords="250,150,50" onclick="play7()">
+            <area shape="circle" coords="350,150,50" onclick="play8()">
+            <area shape="circle" coords="50,250,50" onclick="play9()">
+            <area shape="circle" coords="150,250,50" onclick="play10()">
+            <area shape="circle" coords="250,250,50" onclick="play11()">
+            <area shape="circle" coords="350,250,50" onclick="play12()">
+            <area shape="circle" coords="50,350,50" onclick="play13()">
+            <area shape="circle" coords="150,350,50" onclick="play14()">
+            <area shape="circle" coords="250,350,50" onclick="play15()">
+            <area shape="circle" coords="350,350,50" onclick="play16()">
+
+        </map><br>
+    </div>
+
+</body>
+<script>
+var photomosaic = new PhotoMosaic({
+    image: document.getElementById('before'),
+    targetElement: document.getElementById('after'),
+    width: 400,
+    height: 400,
+    tileWidth: 100,
+    tileHeight: 100
+})
+
+window.onload=function(){
+
+}
+
+function TR808Tone1(context, osc_frequency, osc_sweep, amp_gain, amp_decaytime) {
+    this.context = context;
+    this.osc_frequency = osc_frequency;
+    this.osc_sweep = osc_sweep;
+    this.amp_gain = amp_gain;
+    this.amp_decaytime = amp_decaytime;
+
+    this.amp_attack_time = 0.0;
+//		this.decay = 0.7;
+};
+
+// create and connect
+TR808Tone1.prototype.setup = function() {
+
+    // oscillator
+    this.osc = this.context.createOscillator();
+
+    // envelope
+    this.gain = this.context.createGain();
+
+    // connect
+    this.osc.connect(this.gain);
+    this.gain.connect(this.context.destination)
+};
+
+
+// control
+TR808Tone1.prototype.trigger = function(time) {
+    this.setup();
+
+    // frequency sweeping
+    this.osc.frequency.setValueAtTime(this.osc_frequency, time);
+    if (this.osc_sweep == 'linear') {
+        this.osc.frequency.linearRampToValueAtTime(1, time + this.amp_attack_time + this.amp_decaytime);
+    }
+    else if (this.osc_sweep == 'exp') {
+        this.osc.frequency.exponentialRampToValueAtTime(1, time + this.amp_attack_time + this.amp_decaytime);
+    }
+
+    // amp envelope
+    this.gain.gain.setValueAtTime(0, time);
+    this.gain.gain.linearRampToValueAtTime(this.amp_gain, time +  this.amp_attack_time);
+    this.gain.gain.exponentialRampToValueAtTime(0.01, time + this.amp_attack_time +  this.amp_decaytime);
+
+    this.osc.start(time);
+
+    this.osc.stop(time + this.amp_attack_time +  this.amp_decaytime);
+};
+
+function TR808Tone2(context, highpass_freq, amp_gain, amp_decaytime) {
+    this.context = context;
+
+    this.highpass_frequency = highpass_freq;
+
+    this.amp_decaytime = amp_decaytime;
+    this.amp_gain = amp_gain;
+    this.amp_attack_time = 0.0;
+//		this.decay = 0.7;
+};
+
+// generate a wavetable for white noise
+TR808Tone2.prototype.noiseBuffer = function() {
+    var bufferSize = this.context.sampleRate;
+    var buffer = this.context.createBuffer(1, bufferSize, this.context.sampleRate);
+    var output = buffer.getChannelData(0);
+
+    for (var i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+    }
+
+    return buffer;
+};
+
+TR808Tone2.prototype.setup = function() {
+    // white noise
+    this.noise = this.context.createBufferSource();
+    this.noise.buffer = this.noiseBuffer();
+
+    // highpass filter
+    var noiseFilter = this.context.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = this.highpass_frequency;
+    noiseFilter.Q.value = 1;
+    this.noise.connect(noiseFilter);
+
+    // amp envelop
+    this.noiseEnvelope = this.context.createGain();
+    noiseFilter.connect(this.noiseEnvelope);
+    this.noiseEnvelope.connect(this.context.destination);
+};
+
+TR808Tone2.prototype.trigger = function(time) {
+    this.setup();
+
+    this.noiseEnvelope.gain.setValueAtTime(this.amp_gain, time);
+    this.noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, time + this.amp_decaytime);
+    this.noise.start(time)
+    this.noise.stop(time + this.amp_decaytime);
+};
+
+
+var context = new AudioContext();
+
+function play1()
+{
+    var play1 = new TR808Tone1(context,150, 'exp', 2, 0.6);
+    var now = context.currentTime;
+
+    play1.trigger(now);
+}
+
+function play2()
+{
+    var play2 = new TR808Tone1(context, 200, 'exp', 8,2);
+    var now = context.currentTime;
+
+    play2.trigger(now);
+}
+
+function play3()
+{
+    var play3 = new TR808Tone1(context,300, 'exp', 1, 3);
+    var now = context.currentTime;
+
+    play3.trigger(now);
+}
+
+
+function play4()
+{
+    var play4 = new TR808Tone1(context, hsv_array[3][0], 'exp', hsv_array[3][1]/100, hsv_array[3][2]/100);
+    var now = context.currentTime;
+
+    play4.trigger(now);
+}
+
+
+function play5()
+{
+    var play5 = new TR808Tone1(context, hsv_array[4][0], 'exp', hsv_array[4][1]/100, hsv_array[4][2]/100);
+    var now = context.currentTime;
+
+    play5.trigger(now);
+}
+
+
+function play6()
+{
+    var play6 = new TR808Tone1(context, hsv_array[5][0], 'exp', hsv_array[5][1]/100, hsv_array[5][2]/100);
+    var now = context.currentTime;
+
+    play6.trigger(now);
+}
+
+
+function play7()
+{
+    var play7 = new TR808Tone1(context, hsv_array[6][0], 'exp', hsv_array[6][1]/100, hsv_array[6][2]/100);
+    var now = context.currentTime;
+
+    play7.trigger(now);
+}
+
+
+function play8()
+{
+    var play8 = new TR808Tone1(context, hsv_array[7][0], 'exp', hsv_array[7][1]/100, hsv_array[7][2]/100);
+    var now = context.currentTime;
+
+    play8.trigger(now);
+}
+
+
+function play9()
+{
+    var play9 = new TR808Tone1(context, hsv_array[8][0], 'exp', hsv_array[8][1]/100, hsv_array[8][2]/100);
+    var now = context.currentTime;
+
+    play9.trigger(now);
+}
+
+
+function play10()
+{
+    var play10 = new TR808Tone1(context, hsv_array[9][0], 'exp', hsv_array[9][1]/100, hsv_array[9][2]/100);
+    var now = context.currentTime;
+
+    play10.trigger(now);
+}
+
+
+function play11()
+{
+    var play11 = new TR808Tone1(context, hsv_array[10][0], 'exp', hsv_array[10][1]/100, hsv_array[10][2]/100);
+    var now = context.currentTime;
+
+    play11.trigger(now);
+}
+
+
+function play12()
+{
+    var play12 = new TR808Tone1(context, hsv_array[11][0], 'exp', hsv_array[11][1]/100, hsv_array[11][2]/100);
+    var now = context.currentTime;
+
+    play12.trigger(now);
+}
+
+
+function play13()
+{
+    var play13 = new TR808Tone1(context, hsv_array[12][0], 'exp', hsv_array[12][1]/100, hsv_array[12][2]/100);
+    var now = context.currentTime;
+
+    play13.trigger(now);
+}
+
+
+function play14()
+{
+    var play14 = new TR808Tone1(context, hsv_array[13][0], 'exp', hsv_array[13][1]/100, hsv_array[13][2]/100);
+    var now = context.currentTime;
+
+    play14.trigger(now);
+}
+
+
+function play15()
+{
+    var play15 = new TR808Tone1(context, hsv_array[14][0], 'exp', hsv_array[14][1]/100, hsv_array[14][2]/100);
+    var now = context.currentTime;
+
+    play15.trigger(now);
+}
+
+function play16()
+{
+    var play16 = new TR808Tone1(context, hsv_array[15][0], 'exp', hsv_array[15][1]/100, hsv_array[15][2]/100);
+    var now = context.currentTime;
+
+    play16.trigger(now);
+}
+
+
+</script>
+
+</html>
